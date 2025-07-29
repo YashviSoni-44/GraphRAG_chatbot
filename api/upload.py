@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 import nltk
 from nltk.tokenize import sent_tokenize
 
-nltk.download("punkt")
+# nltk.download("punkt")
+nltk.data.path.append(os.path.join(os.path.dirname(__file__), "..", "nltk_data"))
 load_dotenv()
 
 upload_bp = Blueprint("upload", __name__)
