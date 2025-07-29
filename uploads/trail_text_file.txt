@@ -1,0 +1,14 @@
+Project: Apollo AI  
+Team Members: Alice Johnson, Bob Smith, Carla Gomez  
+Start Date: January 2023  
+End Date: December 2023  
+Technologies Used: Python, Neo4j, LLMs  
+
+Alice Johnson was the lead data scientist.  
+Bob Smith handled full-stack development.  
+Carla Gomez managed project coordination and testing.
+
+The Apollo AI project focused on building an intelligent chatbot using a knowledge graph and LLM integration. It was deployed for internal company use to assist with technical documentation queries.
+
+Bob and Carla previously worked together on the Orion NLP Project in 2022.
+

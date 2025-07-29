@@ -1,0 +1,11 @@
+groq   # or groq/mistral SDK if preferred
+flask
+neo4j
+pdfplumber
+python-docx
+pandas
+requests
+python-dotenv
+nltk
+flask-cors
+python-multipart

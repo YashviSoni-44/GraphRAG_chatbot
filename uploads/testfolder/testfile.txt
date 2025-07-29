@@ -1,0 +1,9 @@
+GraphRAG is a method that combines knowledge graphs with retrieval-augmented generation to improve question answering. 
+It extracts facts and relationships from documents and stores them as nodes and edges. 
+Then, when a user asks a question, it queries the graph for relevant context before sending it to an LLM.
+
+For example, if a document contains sentences about AI, machine learning, and deep learning, GraphRAG can organize them into a structured format. 
+This makes it easier to retrieve specific information and generate more accurate answers.
+
+Neo4j is commonly used as the graph database because of its support for Cypher query language. 
+Groq and Mistral are LLM providers that can be integrated with GraphRAG to produce high-quality responses.
