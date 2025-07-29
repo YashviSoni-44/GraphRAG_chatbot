@@ -178,7 +178,9 @@ load_dotenv()
 
 upload_bp = Blueprint("upload", __name__)
 
-BASE_UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads")
+# BASE_UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads")
+BASE_UPLOAD_FOLDER = "/tmp/uploads"
+
 os.makedirs(BASE_UPLOAD_FOLDER, exist_ok=True)
 
 NEO4J_URI = os.getenv("NEO4J_URI")
