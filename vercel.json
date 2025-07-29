@@ -20,7 +20,7 @@
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/\\1.py" },
     { "src": "/uploads/(.*)", "dest": "/uploads/$1" },
-    { "src": "/(.*\\.(js|css|jpeg|jpg|png|gif|ico))", "dest": "/public/$1" },
+    { "src": "/(.*\\.(js|css|jpeg|jpg|png|gif|ico|json))", "dest": "/public/$1" },
     { "src": "/(.*)", "dest": "/public/index.html" }
   ]
 }
