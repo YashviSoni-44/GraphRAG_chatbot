@@ -152,7 +152,6 @@
 #         response["errors"] = errors
 #     return jsonify(response), 200
 
-
 # @upload_bp.route("/files", methods=["GET"])
 # def list_uploaded_files():
 #     driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
@@ -167,6 +166,67 @@
 #     finally:
 #         driver.close()
 #     return jsonify({"files": files})
+
+# @upload_bp.route("/delete", methods=["POST"])
+# def delete_file_and_chat():
+#     from flask import current_app
+#     data = request.get_json()
+#     filename = data.get("file_name")
+#     if not filename:
+#         return jsonify({"error": "file_name is required for deletion"}), 400
+
+#     driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
+#     errors = []
+#     try:
+#         # 1. Remove nodes in Neo4j (file, sentences, chat sessions/messages)
+#         with driver.session() as session:
+#             # Delete all sentences belonging to file
+#             session.run("""
+#                 MATCH (f:File {name: $filename})-[:CONTAINS]->(s:Sentence)
+#                 DETACH DELETE s
+#             """, {"filename": filename})
+#             # Delete chat session(s) and messages
+#             session.run("""
+#                 MATCH (cs:ChatSession {file_name: $filename})-[:HAS_MESSAGE]->(m:ChatMessage)
+#                 DETACH DELETE m
+#             """, {"filename": filename})
+#             session.run("""
+#                 MATCH (cs:ChatSession {file_name: $filename})
+#                 DETACH DELETE cs
+#             """, {"filename": filename})
+#             # Delete file node itself
+#             session.run("""
+#                 MATCH (f:File {name: $filename})
+#                 DETACH DELETE f
+#             """, {"filename": filename})
+
+#         # 2. Remove uploaded file itself (and possible empty directories)
+#         file_path = os.path.join(BASE_UPLOAD_FOLDER, filename)
+#         if os.path.exists(file_path):
+#             try:
+#                 os.remove(file_path)
+#                 # Clean up empty dirs up the path (optional, can skip to avoid risk)
+#                 dir_path = os.path.dirname(file_path)
+#                 while dir_path and dir_path != BASE_UPLOAD_FOLDER and os.path.isdir(dir_path):
+#                     if not os.listdir(dir_path):
+#                         os.rmdir(dir_path)
+#                         dir_path = os.path.dirname(dir_path)
+#                     else:
+#                         break
+#             except Exception as e:
+#                 errors.append(f"File system error: {e}")
+#         else:
+#             # Silently ignore; file may have already been deleted
+#             pass
+
+#         driver.close()
+#         msg = f"Deleted file and chat for '{filename.split('/')[-1]}'."
+#         if errors:
+#             msg += " Some issues: " + "; ".join(errors)
+#         return jsonify({"message": msg})
+#     except Exception as e:
+#         driver.close()
+#         return jsonify({"error": "Failed to delete file/chat: " + str(e)}), 500
 
 
 
@@ -192,9 +252,8 @@ load_dotenv()
 
 upload_bp = Blueprint("upload", __name__)
 
-# BASE_UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads")
+# Use /tmp/uploads or configure your persistent upload folder
 BASE_UPLOAD_FOLDER = "/tmp/uploads"
-
 os.makedirs(BASE_UPLOAD_FOLDER, exist_ok=True)
 
 NEO4J_URI = os.getenv("NEO4J_URI")
@@ -232,37 +291,54 @@ def extract_text(file_path, filename):
         return "", f"extractor_error: {str(e)}"
     return text, None
 
-def create_graph_for_file(session, filename, text):
+def create_graph_for_file(session, session_id, filename, text):
+    # Compose a unique Neo4j node file name combining session ID to isolate users
+    node_file_name = f"{session_id}__{filename}"
+
     sentences = sent_tokenize(text)
     if not sentences:
         return 0
-    session.run("MERGE (f:File {name: $filename})", {"filename": filename})
+    session.run("MERGE (f:File {name: $filename, sessionId: $session_id})",
+                {"filename": node_file_name, "session_id": session_id})
+
+    # ChatSession likewise scoped by sessionId and filename
     session.run("""
-        MERGE (cs:ChatSession {file_name: $filename})
+        MERGE (cs:ChatSession {file_name: $filename, sessionId: $session_id})
         WITH cs
-        MATCH (f:File {name: $filename})
+        MATCH (f:File {name: $filename, sessionId: $session_id})
         MERGE (f)-[:HAS_CHAT_SESSION]->(cs)
-    """, {"filename": filename})
+    """, {"filename": node_file_name, "session_id": session_id})
+
     for idx, sentence in enumerate(sentences):
-        sentence_id = f"{filename}_{idx}"
+        sentence_id = f"{node_file_name}_{idx}"
         session.run("""
-            MERGE (s:Sentence {id: $id})
+            MERGE (s:Sentence {id: $id, sessionId: $session_id})
             ON CREATE SET s.text = $text
-        """, {"id": sentence_id, "text": sentence})
+        """, {"id": sentence_id, "text": sentence, "session_id": session_id})
+
         session.run("""
-            MATCH (f:File {name: $filename}), (s:Sentence {id: $id})
+            MATCH (f:File {name: $filename, sessionId: $session_id}), 
+                  (s:Sentence {id: $id, sessionId: $session_id})
             MERGE (f)-[:CONTAINS]->(s)
-        """, {"filename": filename, "id": sentence_id})
+        """, {"filename": node_file_name, "id": sentence_id, "session_id": session_id})
+
         if idx > 0:
-            prev_id = f"{filename}_{idx - 1}"
+            prev_id = f"{node_file_name}_{idx - 1}"
             session.run("""
-                MATCH (a:Sentence {id: $prev_id}), (b:Sentence {id: $curr_id})
+                MATCH (a:Sentence {id: $prev_id, sessionId: $session_id}), 
+                      (b:Sentence {id: $curr_id, sessionId: $session_id})
                 MERGE (a)-[:NEXT]->(b)
-            """, {"prev_id": prev_id, "curr_id": sentence_id})
+            """, {"prev_id": prev_id, "curr_id": sentence_id, "session_id": session_id})
+
     return len(sentences)
 
 @upload_bp.route("", methods=["POST"])
 def upload_file():
+    # Get session ID from header or form data (prefer header)
+    session_id = request.headers.get("X-Session-Id") or request.form.get("sessionId")
+    if not session_id:
+        return jsonify({"error": "Missing session ID"}), 400
+
     # Accept files under 'file[]' or 'file' keys for flexibility
     files = request.files.getlist('file[]') or request.files.getlist('file') or []
     if not files:
@@ -282,14 +358,20 @@ def upload_file():
             current_app.logger.info(f"Processing uploaded file: {file.filename}")
 
             rel_path = file.filename.replace("\\", "/")  # Normalize slashes
+
             if not allowed_file(rel_path):
                 errors.append(f"{rel_path}: invalid file type")
                 continue
 
-            save_path = os.path.join(BASE_UPLOAD_FOLDER, rel_path)
-            save_dir = os.path.dirname(save_path)
-            if not os.path.exists(save_dir):
-                os.makedirs(save_dir, exist_ok=True)
+            # Save inside a subfolder named by session ID for isolation
+            save_dir = os.path.join(BASE_UPLOAD_FOLDER, session_id)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, rel_path)
+
+            # Ensure parent dirs exist
+            parent_dir = os.path.dirname(save_path)
+            if not os.path.exists(parent_dir):
+                os.makedirs(parent_dir, exist_ok=True)
 
             try:
                 file.save(save_path)
@@ -307,7 +389,7 @@ def upload_file():
                 continue
 
             try:
-                count = create_graph_for_file(session, rel_path, text)
+                count = create_graph_for_file(session, session_id, rel_path, text)
                 if count == 0:
                     errors.append(f"{rel_path}: no sentences could be parsed from extracted text")
                     continue
@@ -330,12 +412,20 @@ def upload_file():
 
 @upload_bp.route("/files", methods=["GET"])
 def list_uploaded_files():
+    session_id = request.headers.get("X-Session-Id") or request.args.get("sessionId")
+    if not session_id:
+        return jsonify({"error": "Missing session ID"}), 400
+
     driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
     files = []
     try:
         with driver.session() as session:
-            result = session.run("MATCH (f:File) RETURN f.name AS name ORDER BY name")
-            files = [record["name"] for record in result]
+            result = session.run("""
+                MATCH (f:File {sessionId: $session_id}) 
+                RETURN f.name AS name ORDER BY name
+            """, {"session_id": session_id})
+            # Remove sessionId prefix from filenames before returning
+            files = [record["name"].split("__", 1)[1] if "__" in record["name"] else record["name"] for record in result]
     except Exception as e:
         current_app.logger.error(f"Failed to fetch files list: {e}")
         return jsonify({"error": "Failed to fetch files list"}), 500
@@ -345,45 +435,49 @@ def list_uploaded_files():
 
 @upload_bp.route("/delete", methods=["POST"])
 def delete_file_and_chat():
-    from flask import current_app
     data = request.get_json()
     filename = data.get("file_name")
-    if not filename:
-        return jsonify({"error": "file_name is required for deletion"}), 400
+    session_id = request.headers.get("X-Session-Id") or data.get("sessionId")
+    if not filename or not session_id:
+        return jsonify({"error": "file_name and sessionId are required for deletion"}), 400
+
+    # Compose session-scoped filename key as stored in Neo4j
+    node_file_name = f"{session_id}__{filename}"
 
     driver = GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
     errors = []
     try:
-        # 1. Remove nodes in Neo4j (file, sentences, chat sessions/messages)
         with driver.session() as session:
-            # Delete all sentences belonging to file
+            # Delete all sentences belonging to file and session
             session.run("""
-                MATCH (f:File {name: $filename})-[:CONTAINS]->(s:Sentence)
+                MATCH (f:File {name: $filename, sessionId: $session_id})-[:CONTAINS]->(s:Sentence {sessionId: $session_id})
                 DETACH DELETE s
-            """, {"filename": filename})
-            # Delete chat session(s) and messages
+            """, {"filename": node_file_name, "session_id": session_id})
+
+            # Delete chat session(s) and messages scoped by session and filename
             session.run("""
-                MATCH (cs:ChatSession {file_name: $filename})-[:HAS_MESSAGE]->(m:ChatMessage)
+                MATCH (cs:ChatSession {file_name: $filename, sessionId: $session_id})-[:HAS_MESSAGE]->(m:ChatMessage)
                 DETACH DELETE m
-            """, {"filename": filename})
+            """, {"filename": node_file_name, "session_id": session_id})
             session.run("""
-                MATCH (cs:ChatSession {file_name: $filename})
+                MATCH (cs:ChatSession {file_name: $filename, sessionId: $session_id})
                 DETACH DELETE cs
-            """, {"filename": filename})
+            """, {"filename": node_file_name, "session_id": session_id})
+
             # Delete file node itself
             session.run("""
-                MATCH (f:File {name: $filename})
+                MATCH (f:File {name: $filename, sessionId: $session_id})
                 DETACH DELETE f
-            """, {"filename": filename})
+            """, {"filename": node_file_name, "session_id": session_id})
 
-        # 2. Remove uploaded file itself (and possible empty directories)
-        file_path = os.path.join(BASE_UPLOAD_FOLDER, filename)
+        # Remove uploaded file itself
+        file_path = os.path.join(BASE_UPLOAD_FOLDER, session_id, filename)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
-                # Clean up empty dirs up the path (optional, can skip to avoid risk)
+                # Clean up empty dirs upwards
                 dir_path = os.path.dirname(file_path)
-                while dir_path and dir_path != BASE_UPLOAD_FOLDER and os.path.isdir(dir_path):
+                while dir_path and dir_path != os.path.join(BASE_UPLOAD_FOLDER, session_id) and os.path.isdir(dir_path):
                     if not os.listdir(dir_path):
                         os.rmdir(dir_path)
                         dir_path = os.path.dirname(dir_path)
@@ -391,16 +485,12 @@ def delete_file_and_chat():
                         break
             except Exception as e:
                 errors.append(f"File system error: {e}")
-        else:
-            # Silently ignore; file may have already been deleted
-            pass
 
         driver.close()
-        msg = f"Deleted file and chat for '{filename.split('/')[-1]}'."
+        msg = f"Deleted file and chat for '{filename}'."
         if errors:
             msg += " Some issues: " + "; ".join(errors)
         return jsonify({"message": msg})
     except Exception as e:
         driver.close()
         return jsonify({"error": "Failed to delete file/chat: " + str(e)}), 500
-

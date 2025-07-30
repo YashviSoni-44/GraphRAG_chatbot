@@ -50,6 +50,55 @@
 
 //   // Setup light/dark mode toggle
 //   setupThemeToggle();
+
+
+
+
+
+
+
+//   const clearChatBtn = document.getElementById('clearChatBtn');
+//   if (clearChatBtn) {
+//     clearChatBtn.addEventListener('click', async () => {
+//       if (!activeFile) {
+//         alert("No active file selected to clear chat.");
+//         return;
+//       }
+//       if (!confirm(`Are you sure you want to clear chat history for "${activeFile.split('/').pop()}"?`)) {
+//         return;
+//       }
+
+//       clearChatBtn.disabled = true;
+//       clearChatBtn.textContent = "Clearing...";
+
+//       try {
+//         const res = await fetch('/api/chat/clear', {
+//           method: 'POST',
+//           headers: { 'Content-Type': 'application/json' },
+//           body: JSON.stringify({ file_name: activeFile })
+//         });
+//         const data = await res.json();
+//         if (!res.ok) {
+//           alert(data.error || "Failed to clear chat history.");
+//           clearChatBtn.disabled = false;
+//           clearChatBtn.textContent = "Clear Chat";
+//           return;
+//         }
+//         // Clear front-end chat cache and UI for active file
+//         delete chatHistories[activeFile];
+//         chatbox.innerHTML = `<p><b>System:</b> Chat history cleared for "${activeFile.split('/').pop()}".</p>`;
+
+//         alert(data.message || "Chat history cleared.");
+
+//       } catch (err) {
+//         alert("Error clearing chat history: " + (err.message || err));
+//         console.error(err);
+//       } finally {
+//         clearChatBtn.disabled = false;
+//         clearChatBtn.textContent = "Clear Chat";
+//       }
+//     });
+//   }
 // });
 
 // function saveUploadedFiles() {
@@ -67,12 +116,30 @@
 //   return [];
 // }
 
+
+
+
+// function updateClearChatBtnState() {
+//   const clearBtn = document.getElementById('clearChatBtn');
+//   if (!clearBtn) return;
+//   clearBtn.disabled = !activeFile;
+// }
+
+
+
+
+
+
 // function setActiveFile(filename) {
 //   if (!filename || filename === activeFile) return;
 //   activeFile = filename;
 //   activeFileSpan.textContent = filename.split('/').pop();
 //   updateSidebarHighlight(filename);
 //   localStorage.setItem('activeFile', filename);
+
+
+//   updateClearChatBtnState();
+
 
 //   if (chatHistories[filename]) {
 //     renderChatHistory(filename);
@@ -233,14 +300,128 @@
 //     });
 // }
 
+// // ----> MODIFIED/ADDED <----
+
+// // Add a cross delete icon right to each sidebar file
 // function addFileToSidebar(fileName) {
 //   if ([...fileListElement.children].some(li => li.dataset.fullname === fileName)) return;
 //   const li = document.createElement('li');
-//   li.textContent = fileName.split('/').pop();
 //   li.dataset.fullname = fileName;
 //   li.style.cursor = "pointer";
-//   li.addEventListener('click', () => setActiveFile(fileName));
+
+//   // Use a flexbox container for file item text + cross
+//   const container = document.createElement('span');
+//   container.style.display = "flex";
+//   container.style.alignItems = "center";
+//   container.style.justifyContent = "space-between";
+
+//   // File name display
+//   const fileLabel = document.createElement('span');
+//   fileLabel.textContent = fileName.split('/').pop();
+//   fileLabel.style.flex = "1 1 auto";
+//   fileLabel.style.paddingRight = "8px";
+//   // Make clicking filename select this file:
+//   fileLabel.addEventListener('click', e => {
+//     setActiveFile(fileName);
+//   });
+
+//   // Cross button
+//   const crossBtn = document.createElement('button');
+//   crossBtn.innerHTML = '&times;';
+//   crossBtn.title = "Delete this file and chat";
+//   crossBtn.setAttribute('aria-label', `Delete "${fileName.split('/').pop()}"`);
+//   crossBtn.style.background = "transparent";
+//   crossBtn.style.color = "#aa366b";
+//   crossBtn.style.fontSize = "18px";
+//   crossBtn.style.border = "none";
+//   crossBtn.style.cursor = "pointer";
+//   crossBtn.style.padding = "0px 6px";
+//   crossBtn.style.borderRadius = "50%";
+//   crossBtn.style.width = "22px";
+//   crossBtn.style.height = "22px";
+//   crossBtn.style.lineHeight = "18px";
+//   crossBtn.style.marginLeft = "6px";
+//   crossBtn.style.opacity = "0.82";
+//   crossBtn.style.transition = "background 0.14s";
+//   crossBtn.style.boxSizing = "border-box";
+//   crossBtn.style.display = "inline-flex";
+//   crossBtn.style.justifyContent = "center";
+//   crossBtn.style.alignItems = "center";
+//   crossBtn.addEventListener('click', function(e) {
+//     e.stopPropagation();
+//     deleteFileAndChat(fileName, li);
+//   });
+
+//   crossBtn.addEventListener('mouseover', function() {
+//     crossBtn.style.background = "#f7bdd2";
+//   });
+//   crossBtn.addEventListener('mouseout', function() {
+//     crossBtn.style.background = "transparent";
+//   });
+
+//   container.appendChild(fileLabel);
+//   container.appendChild(crossBtn);
+//   li.appendChild(container);
+
+//   li.addEventListener('click', (e) => {
+//     // Only handle clicks on li if not from cross
+//     if (e.target !== crossBtn) {
+//       setActiveFile(fileName);
+//     }
+//   });
 //   fileListElement.appendChild(li);
+// }
+
+// // The actual delete action (calls backend, updates UI)
+// async function deleteFileAndChat(fileName, sidebarLiElement) {
+//   if (!window.confirm(`Are you sure you want to delete "${fileName.split('/').pop()}" and its chat data? This cannot be undone.`)) {
+//     return;
+//   }
+
+//   // Indicate deleting state
+//   if (sidebarLiElement) {
+//     sidebarLiElement.style.opacity = '0.4';
+//   }
+
+//   try {
+//     const res = await fetch(`/api/upload/delete`, {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({ file_name: fileName })
+//     });
+//     const data = await res.json();
+
+//     if (!res.ok) {
+//       uploadStatus.textContent = data.error || "Failed to delete file!";
+//       if (sidebarLiElement) sidebarLiElement.style.opacity = '1';
+//       return;
+//     }
+
+//     // Remove from global state
+//     const idx = uploadedFiles.indexOf(fileName);
+//     if (idx !== -1) uploadedFiles.splice(idx, 1);
+//     if (sidebarLiElement && sidebarLiElement.parentElement)
+//       sidebarLiElement.parentElement.removeChild(sidebarLiElement);
+
+//     if (activeFile === fileName) {
+//       // Switch active file if any left, else "None"
+//       if (uploadedFiles.length > 0)
+//         setActiveFile(uploadedFiles[0]);
+//       else {
+//         activeFile = null;
+//         activeFileSpan.textContent = "None";
+//         chatbox.innerHTML = '';
+//       }
+//     }
+//     delete chatHistories[fileName];
+
+//     uploadStatus.textContent = data.message || `Deleted "${fileName.split('/').pop()}".`;
+//     saveUploadedFiles();
+//   } catch (err) {
+//     uploadStatus.textContent = "Delete failed: " + (err.message || err);
+//     if (sidebarLiElement) sidebarLiElement.style.opacity = '1';
+//     console.error(err);
+//   }
 // }
 
 // const TYPING_DELAY_MS = 600;
@@ -383,27 +564,46 @@
 // window.askQuestion = askQuestion;
 
 
-//===============================================================================================
+
+//=============================================================================================
+
+
+
 
 // ========================
 // Global State Variables
 // ========================
 
-let uploadedFiles = [];  // Stores full relative paths or file names
-let activeFile = null;   // Currently selected file key (full path)
+// Generate or fetch unique session ID per user and persist in localStorage
+function getSessionId() {
+  let sessionId = localStorage.getItem('graphbot_session_id');
+  if (!sessionId) {
+    if (window.crypto && crypto.randomUUID) {
+      sessionId = crypto.randomUUID();
+    } else {
+      // fallback random string if crypto unavailable
+      sessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+    localStorage.setItem('graphbot_session_id', sessionId);
+  }
+  return sessionId;
+}
+const SESSION_ID = getSessionId();
 
-const chatHistories = {}; // { filename(full path): [ {role, content}, ... ] }
-
+// Existing global variables
+let uploadedFiles = [];
+let activeFile = null;
+const chatHistories = {};
 const fileListElement = document.getElementById('fileList');
 const activeFileSpan = document.getElementById('activeFile');
 const chatbox = document.getElementById('chatbox');
 const uploadStatus = document.getElementById('uploadStatus');
-
 const askForm = document.getElementById('askForm');
 const questionInput = document.getElementById('question');
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Attach event listeners for upload buttons and chat form
+  // (Existing initialization code...)
+
   const uploadFilesBtn = document.getElementById('uploadFilesBtn');
   const uploadFolderBtn = document.getElementById('uploadFolderBtn');
   if (uploadFilesBtn) uploadFilesBtn.addEventListener('click', uploadFiles);
@@ -414,16 +614,16 @@ document.addEventListener('DOMContentLoaded', () => {
     askQuestion();
   });
 
-  if (questionInput) questionInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      askQuestion();
-    }
-  });
+  if (questionInput) {
+    questionInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        askQuestion();
+      }
+    });
+  }
 
-  // ===== Load uploaded files from backend and render =====
   fetchUploadedFilesFromServer().then(() => {
-    // Restore last active file or pick first
     const savedActiveFile = localStorage.getItem('activeFile');
     if (savedActiveFile && uploadedFiles.includes(savedActiveFile)) {
       setActiveFile(savedActiveFile);
@@ -432,11 +632,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Focus input on load
   questionInput.focus();
-
-  // Setup light/dark mode toggle
   setupThemeToggle();
+
+  const clearChatBtn = document.getElementById('clearChatBtn');
+  if (clearChatBtn) {
+    clearChatBtn.addEventListener('click', async () => {
+      if (!activeFile) {
+        alert("No active file selected to clear chat.");
+        return;
+      }
+      if (!confirm(`Are you sure you want to clear chat history for "${activeFile.split('/').pop()}"?`)) {
+        return;
+      }
+
+      clearChatBtn.disabled = true;
+      clearChatBtn.textContent = "Clearing...";
+
+      try {
+        const res = await fetch('/api/chat/clear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Session-Id': SESSION_ID },
+          body: JSON.stringify({ file_name: activeFile, sessionId: SESSION_ID })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "Failed to clear chat history.");
+          clearChatBtn.disabled = false;
+          clearChatBtn.textContent = "Clear Chat";
+          return;
+        }
+        delete chatHistories[activeFile];
+        chatbox.innerHTML = `<p><b>System:</b> Chat history cleared for "${activeFile.split('/').pop()}".</p>`;
+        alert(data.message || "Chat history cleared.");
+      } catch (err) {
+        alert("Error clearing chat history: " + (err.message || err));
+        console.error(err);
+      } finally {
+        clearChatBtn.disabled = false;
+        clearChatBtn.textContent = "Clear Chat";
+      }
+    });
+  }
 });
 
 function saveUploadedFiles() {
@@ -454,12 +691,19 @@ function loadUploadedFiles() {
   return [];
 }
 
+function updateClearChatBtnState() {
+  const clearBtn = document.getElementById('clearChatBtn');
+  if (!clearBtn) return;
+  clearBtn.disabled = !activeFile;
+}
+
 function setActiveFile(filename) {
   if (!filename || filename === activeFile) return;
   activeFile = filename;
   activeFileSpan.textContent = filename.split('/').pop();
   updateSidebarHighlight(filename);
   localStorage.setItem('activeFile', filename);
+  updateClearChatBtnState();
 
   if (chatHistories[filename]) {
     renderChatHistory(filename);
@@ -474,7 +718,6 @@ function updateSidebarHighlight(filename) {
   });
 }
 
-// Safely escape HTML to prevent injection
 function escapeHTML(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -486,9 +729,7 @@ function createMessageElement(role, content) {
   messageDiv.classList.add('chat-message');
   messageDiv.classList.add(role === 'user' ? 'user' : 'bot');
 
-  // Escape content, preserving newlines in bot messages with <br> tags
   if (role === 'assistant' || role === 'bot') {
-    // Convert newlines to <br> for bot messages for better formatting
     const escaped = escapeHTML(content).replace(/\n/g, "<br>");
     messageDiv.innerHTML = `<b>Bot:</b> ${escaped}`;
   } else {
@@ -509,7 +750,9 @@ function renderChatHistory(filename) {
 
 async function loadChatHistoryFromServer(filename) {
   try {
-    const response = await fetch(`/api/chat/history?file_name=${encodeURIComponent(filename)}`);
+    const response = await fetch(`/api/chat/history?file_name=${encodeURIComponent(filename)}`, {
+      headers: { 'X-Session-Id': SESSION_ID }
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
     const data = await response.json();
     if (data.history) {
@@ -527,30 +770,26 @@ async function loadChatHistoryFromServer(filename) {
   }
 }
 
-// Fetch uploaded files list from backend (Neo4j)
 async function fetchUploadedFilesFromServer() {
   try {
-    const res = await fetch('/api/upload/files');
+    const res = await fetch('/api/upload/files', {
+      headers: { 'X-Session-Id': SESSION_ID }
+    });
     if (!res.ok) throw new Error(`Failed to fetch files list: ${res.status}`);
     const data = await res.json();
     if (Array.isArray(data.files)) {
-      // Clear old state and localStorage
       uploadedFiles = [];
       fileListElement.innerHTML = '';
-
-      // Use backend list
       data.files.forEach(filename => {
         uploadedFiles.push(filename);
         addFileToSidebar(filename);
       });
-
       saveUploadedFiles();
     } else {
       console.warn("Malformed files response:", data);
     }
   } catch (err) {
     console.error("Error fetching uploaded files from server:", err);
-    // Fallback: load from localStorage if backend fails
     const savedFiles = loadUploadedFiles();
     for (const fileName of savedFiles) {
       if (!uploadedFiles.includes(fileName)) {
@@ -572,6 +811,7 @@ function uploadFiles() {
   for (const file of files) {
     formData.append('file[]', file, file.name);
   }
+  formData.append('sessionId', SESSION_ID);
   doUpload(formData);
 }
 
@@ -586,66 +826,62 @@ function uploadFolder() {
   for (const file of files) {
     formData.append('file[]', file, file.webkitRelativePath || file.name);
   }
+  formData.append('sessionId', SESSION_ID);
   doUpload(formData);
 }
 
 function doUpload(formData) {
-  fetch('/api/upload', { method: 'POST', body: formData })
-    .then(res => res.json())
-    .then(async data => {
-      if (data.message) {
-        uploadStatus.textContent = data.message;
-        // Refresh full files list from backend so frontend is synced
-        await fetchUploadedFilesFromServer();
-
-        // Set active file if none set or was removed
-        if (!activeFile || !uploadedFiles.includes(activeFile)) {
-          if (uploadedFiles.length > 0) setActiveFile(uploadedFiles[0]);
-        }
-
-        if (data.errors && data.errors.length) {
-          uploadStatus.textContent += ' (Some issues: ' + data.errors.join(' | ') + ')';
-        }
-      } else if (data.errors) {
-        uploadStatus.textContent = "Errors: " + data.errors.join(", ");
-      } else if (data.error) {
-        uploadStatus.textContent = data.error;
-      } else {
-        uploadStatus.textContent = "Upload failed.";
+  fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+    headers: {
+      "X-Session-Id": SESSION_ID
+    }
+  })
+  .then(res => res.json())
+  .then(async data => {
+    if (data.message) {
+      uploadStatus.textContent = data.message;
+      await fetchUploadedFilesFromServer();
+      if (!activeFile || !uploadedFiles.includes(activeFile)) {
+        if (uploadedFiles.length > 0) setActiveFile(uploadedFiles[0]);
       }
-    })
-    .catch(err => {
-      uploadStatus.textContent = "Upload failed: " + (err.message || err);
-      console.error(err);
-    });
+      if (data.errors && data.errors.length) {
+        uploadStatus.textContent += ' (Some issues: ' + data.errors.join(' | ') + ')';
+      }
+    } else if (data.errors) {
+      uploadStatus.textContent = "Errors: " + data.errors.join(", ");
+    } else if (data.error) {
+      uploadStatus.textContent = data.error;
+    } else {
+      uploadStatus.textContent = "Upload failed.";
+    }
+  })
+  .catch(err => {
+    uploadStatus.textContent = "Upload failed: " + (err.message || err);
+    console.error(err);
+  });
 }
 
-// ----> MODIFIED/ADDED <----
-
-// Add a cross delete icon right to each sidebar file
 function addFileToSidebar(fileName) {
   if ([...fileListElement.children].some(li => li.dataset.fullname === fileName)) return;
   const li = document.createElement('li');
   li.dataset.fullname = fileName;
   li.style.cursor = "pointer";
 
-  // Use a flexbox container for file item text + cross
   const container = document.createElement('span');
   container.style.display = "flex";
   container.style.alignItems = "center";
   container.style.justifyContent = "space-between";
 
-  // File name display
   const fileLabel = document.createElement('span');
   fileLabel.textContent = fileName.split('/').pop();
   fileLabel.style.flex = "1 1 auto";
   fileLabel.style.paddingRight = "8px";
-  // Make clicking filename select this file:
   fileLabel.addEventListener('click', e => {
     setActiveFile(fileName);
   });
 
-  // Cross button
   const crossBtn = document.createElement('button');
   crossBtn.innerHTML = '&times;';
   crossBtn.title = "Delete this file and chat";
@@ -667,24 +903,19 @@ function addFileToSidebar(fileName) {
   crossBtn.style.display = "inline-flex";
   crossBtn.style.justifyContent = "center";
   crossBtn.style.alignItems = "center";
+
   crossBtn.addEventListener('click', function(e) {
     e.stopPropagation();
     deleteFileAndChat(fileName, li);
   });
-
-  crossBtn.addEventListener('mouseover', function() {
-    crossBtn.style.background = "#f7bdd2";
-  });
-  crossBtn.addEventListener('mouseout', function() {
-    crossBtn.style.background = "transparent";
-  });
+  crossBtn.addEventListener('mouseover', () => crossBtn.style.background = "#f7bdd2");
+  crossBtn.addEventListener('mouseout', () => crossBtn.style.background = "transparent");
 
   container.appendChild(fileLabel);
   container.appendChild(crossBtn);
   li.appendChild(container);
 
   li.addEventListener('click', (e) => {
-    // Only handle clicks on li if not from cross
     if (e.target !== crossBtn) {
       setActiveFile(fileName);
     }
@@ -692,13 +923,11 @@ function addFileToSidebar(fileName) {
   fileListElement.appendChild(li);
 }
 
-// The actual delete action (calls backend, updates UI)
 async function deleteFileAndChat(fileName, sidebarLiElement) {
   if (!window.confirm(`Are you sure you want to delete "${fileName.split('/').pop()}" and its chat data? This cannot be undone.`)) {
     return;
   }
 
-  // Indicate deleting state
   if (sidebarLiElement) {
     sidebarLiElement.style.opacity = '0.4';
   }
@@ -706,8 +935,11 @@ async function deleteFileAndChat(fileName, sidebarLiElement) {
   try {
     const res = await fetch(`/api/upload/delete`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ file_name: fileName })
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-Id': SESSION_ID
+      },
+      body: JSON.stringify({ file_name: fileName, sessionId: SESSION_ID })
     });
     const data = await res.json();
 
@@ -717,14 +949,12 @@ async function deleteFileAndChat(fileName, sidebarLiElement) {
       return;
     }
 
-    // Remove from global state
     const idx = uploadedFiles.indexOf(fileName);
     if (idx !== -1) uploadedFiles.splice(idx, 1);
     if (sidebarLiElement && sidebarLiElement.parentElement)
       sidebarLiElement.parentElement.removeChild(sidebarLiElement);
 
     if (activeFile === fileName) {
-      // Switch active file if any left, else "None"
       if (uploadedFiles.length > 0)
         setActiveFile(uploadedFiles[0]);
       else {
@@ -745,7 +975,6 @@ async function deleteFileAndChat(fileName, sidebarLiElement) {
 }
 
 const TYPING_DELAY_MS = 600;
-
 function showUserTypingIndicator() {
   let typingEl = document.getElementById('typingIndicator');
   if (!typingEl) {
@@ -756,7 +985,6 @@ function showUserTypingIndicator() {
   }
   typingEl.classList.add('show');
 }
-
 function hideUserTypingIndicator() {
   const typingEl = document.getElementById('typingIndicator');
   if (typingEl) {
@@ -789,7 +1017,9 @@ async function askQuestion() {
 
     let contextText = "";
     try {
-      const ctxResponse = await fetch(`/api/chat/context?file_name=${encodeURIComponent(activeFile)}`);
+      const ctxResponse = await fetch(`/api/chat/context?file_name=${encodeURIComponent(activeFile)}`, {
+        headers: { 'X-Session-Id': SESSION_ID }
+      });
       const ctxData = await ctxResponse.json();
       if (ctxData.context) contextText = ctxData.context;
     } catch (err) {
@@ -821,8 +1051,8 @@ async function askQuestion() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, file_name: activeFile })
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': SESSION_ID },
+        body: JSON.stringify({ messages, file_name: activeFile, sessionId: SESSION_ID })
       });
       const data = await res.json();
       botTypingBubble.remove();
@@ -852,7 +1082,6 @@ async function askQuestion() {
   }, TYPING_DELAY_MS);
 }
 
-// Theme toggle setup
 function setupThemeToggle() {
   const toggleThemeCheckbox = document.getElementById('toggleTheme');
   const modeLabel = document.getElementById('modeLabel');

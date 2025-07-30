@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GraphRAG Chatbot</title>
   <link rel="stylesheet" href="/style.css" />
   <link rel="icon" href="/favicon.jpeg" type="image/x-icon" style="border-radius: 10px;"/>
@@ -23,17 +24,14 @@
     <ul id="fileList"></ul>
   </div>
   <div class="container">
-    <!-- <div class="topbar">
-      <h2>Upload Files or Folders</h2>
-      
-    </div> -->
+    <div class="topbar">
+      <h2>Chatting: <span id="activeFile">None</span></h2>
+      <button id="clearChatBtn" aria-label="Clear chat history">Clear Chat</button>
+    </div>
+    
 
-    <h2>Chatting: <span id="activeFile">None</span></h2>
-
-    <!-- Chat messages container -->
     <div id="chatbox" role="log" aria-live="polite" aria-relevant="additions" tabindex="0"></div>
 
-    <!-- Chat input container -->
     <form id="askForm" autocomplete="off">
       <input id="question" type="text" placeholder="Type your question..." aria-label="Type your question" />
       <button type="submit" aria-label="Send question">Send</button>
