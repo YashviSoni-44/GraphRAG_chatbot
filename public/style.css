@@ -418,7 +418,7 @@ body {
 .logo-container {
   display: flex;
   align-items: center;      /* Vertically center the image and switch */
-  gap: 80px;                /* Space between logo and switch */
+  gap: 50px;                /* Space between logo and switch */
   padding: 6px 0;           /* Optional vertical spacing */
 }
 
