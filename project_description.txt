@@ -1,0 +1,123 @@
+Detailed Flow Diagram Description (Textual Graph Form)
+START → User visits chatbot frontend
+
+|
+v
+
+1. Frontend Initialization
+
+Browser loads HTML, CSS, JavaScript (script.js).
+
+JS checks localStorage for a session ID (graphbot_session_id).
+
+If none found, generates a unique session ID, stores in localStorage.
+
+This session ID identifies this user’s chat session and uploaded files uniquely.
+
+|
+v
+
+2. User Uploads File (One or more files)
+
+|
+v
+
+Frontend attaches session ID to upload request headers and form data.
+
+Backend API (upload.py):
+
+Extracts session ID from request.
+
+Saves file under /uploads/<session_id>/filename folder on server filesystem.
+
+Extracts text from file content.
+
+Creates/updates nodes in Neo4j:
+
+File node named <session_id>__filename with sessionId property.
+
+Sentence nodes parsed from file text, linked to file node, all tagged with sessionId.
+
+Returns success or error to frontend.
+
+|
+v
+
+3. Frontend Fetches List of Uploaded Files
+
+|
+v
+
+Sends session ID in request.
+
+Backend queries Neo4j for files with matching sessionId.
+
+Returns file list (without session ID prefix) scoped to current user session.
+
+Frontend renders the list of files user uploaded in this session only.
+
+|
+v
+
+4. User Selects a File & Opens Chat
+
+|
+v
+
+Frontend requests chat history and context from backend using session ID and selected filename.
+
+Backend queries Neo4j for chat sessions and messages filtered by session ID and filename.
+
+Returns chat messages and context sentences to frontend.
+
+Frontend renders chat history for this user session and file only.
+
+|
+v
+
+5. User Asks a Question in Chat
+
+|
+v
+
+Frontend builds messages payload, adds session ID, sends to backend (chat.py).
+
+Backend validates session ownership of file in Neo4j.
+
+Backend sends context + messages to external GROQ API for answer generation.
+
+Receives answer, stores question + answer as chat message nodes in Neo4j tagged with session ID.
+
+Returns answer to frontend.
+
+Frontend appends new messages to chat UI and local session history cache.
+
+|
+v
+
+6. User Clears Chat or Deletes File
+
+|
+v
+
+Frontend sends session ID + filename in request to backend APIs to clear chat or delete file.
+
+Backend deletes chat message nodes and/or files only in the session-scoped Neo4j nodes and filesystem folder (/uploads/<session_id>/).
+
+Backend sends confirmation back to frontend.
+
+|
+v
+
+7. Session Isolation & Data Privacy
+
+|
+v
+
+Each user’s uploaded files and chat history are physically and logically scoped by unique sessionId.
+
+Data stored with a sessionId property or in session ID-named folders assure no leakage of one user’s data to another.
+
+Different browsers, incognito windows, or users have distinct session IDs, resulting in fully isolated chat and files.
+
+LocalStorage isolates sessions per browser domain (local vs vercel).
