@@ -9,3 +9,7 @@ python-dotenv
 nltk
 flask-cors
 python-multipart
+crewai
+crewai-tools
+openai
+langchain

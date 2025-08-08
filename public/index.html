@@ -11,16 +11,22 @@
   <div class="sidebar">
     <div class="logo-container">
       <img src="/favicon.jpeg" alt="Icon" style="width: 40px; height: 40px; vertical-align: middle; margin-bottom: 6px; border-radius: 10px;" />
+      <h2 id="grag">GRAG</h2>
       <div class="mode-switch">
         <label class="switch">
           <input type="checkbox" id="toggleTheme" aria-label="Toggle light/dark mode" />
           <span class="slider"></span>
         </label>
         <span id="modeLabel">Light Mode</span>
+        
       </div>
     </div>
     
-    <h3>📂 Uploaded Files</h3>
+    <div class="file-header">
+      <h3>📂 Uploaded Files</h3>
+      <button id="newfile" title="New Chat" aria-label="Start a new chat">+</button>
+    </div>
+    
     <ul id="fileList"></ul>
   </div>
   <div class="container">

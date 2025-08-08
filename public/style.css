@@ -36,6 +36,15 @@ body {
   min-height: 100vh;
 }
 
+#grag {
+  font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+  font-size: x-large;
+  color: var(--text-color-light);
+  margin: 0;
+  padding-bottom: 8px;
+  text-shadow: #b497db 0px 0px 2px, #b497db 0px 0px 4px, #b497db 0px 0px 6px;
+}
+
 .sidebar {
   width: 250px;
   min-width: 180px;
@@ -46,7 +55,6 @@ body {
   display: flex;
   flex-direction: column;
   max-height: 500px;
-  overflow-y: auto;
 }
 
 .sidebar h3 {
@@ -59,8 +67,9 @@ body {
 
 .sidebar ul {
   list-style: none;
-  padding: 0;
+  padding: 0 5px;
   margin: 0;
+  overflow-y: auto;
 }
 
 .sidebar li {
@@ -111,7 +120,7 @@ body {
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 50px;
+  gap: 10px;
   padding: 6px 0;
 }
 
@@ -123,7 +132,6 @@ body {
 .logo-container .mode-switch {
   display: flex;
   align-items: center;
-  gap: 8px;
   font-size: 14px;
   color: var(--primary-color-light);
   user-select: none;
@@ -203,6 +211,14 @@ button:focus {
   box-shadow: 0 2px 10px 0 rgba(110, 96, 192, 0.5);
   outline: none;
 }
+
+.file-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 
 .upload-row {
   display: flex;
